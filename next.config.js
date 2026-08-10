@@ -1,12 +1,9 @@
 /** @type {import('next').NextConfig} */
-const path = require('path');
-
+// @indwella/sdk now ships a compiled build (dist/, see its package.json
+// main/types), so Next can consume it as a normal pre-built dependency - no
+// transpilePackages entry is needed. It is installed via `file:../indwella-sdk`.
 const nextConfig = {
   reactStrictMode: true,
-  // The workspace packages ship their raw TypeScript source (no build step -
-  // see packages/*/package.json `main`/`types`), so Next.js needs to be told
-  // to run its own compiler over them instead of treating them as pre-built.
-  transpilePackages: ['@indwella/api-client', '@indwella/types'],
   eslint: { ignoreDuringBuilds: false },
 };
 

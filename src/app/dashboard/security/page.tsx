@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
 import { adminApi } from '@/lib/apiClient';
-import type { SecurityDeviceOut } from '@indwella/types';
+import type { SecurityDeviceOut } from '@indwella/sdk';
 
 export default function SecurityPage() {
   const [devices, setDevices] = useState<SecurityDeviceOut[]>([]);
@@ -12,6 +12,8 @@ export default function SecurityPage() {
   const [generating, setGenerating] = useState(false);
   const [newCode, setNewCode] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [currentCode, setCurrentCode] = useState<string | null>(null);
+  const [codeLoading, setCodeLoading] = useState(true);
 
   const load = async () => {
     setLoading(true);
@@ -23,8 +25,21 @@ export default function SecurityPage() {
     }
   };
 
+  const loadCurrentCode = async () => {
+    setCodeLoading(true);
+    try {
+      const { data } = await adminApi.getSecurityCode();
+      setCurrentCode(data || null);
+    } catch {
+      setCurrentCode(null);
+    } finally {
+      setCodeLoading(false);
+    }
+  };
+
   useEffect(() => {
     load();
+    loadCurrentCode();
   }, []);
 
   const handleGenerate = async () => {
@@ -33,6 +48,7 @@ export default function SecurityPage() {
     try {
       const { data } = await adminApi.generateSecurityCode();
       setNewCode(data);
+      await loadCurrentCode();
     } finally {
       setGenerating(false);
     }
@@ -78,6 +94,21 @@ export default function SecurityPage() {
           </button>
         }
       />
+      <div className="card mb-6 flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-ink-700">Current active security code</p>
+          {codeLoading ? (
+            <p className="mt-1 text-sm text-ink-500">Loading…</p>
+          ) : currentCode ? (
+            <p className="mt-1 font-mono text-lg font-bold text-ink-900">{currentCode}</p>
+          ) : (
+            <p className="mt-1 text-sm text-ink-500">No active security code</p>
+          )}
+        </div>
+        <button onClick={loadCurrentCode} disabled={codeLoading} className="btn-secondary">
+          {codeLoading ? 'Refreshing…' : 'Refresh'}
+        </button>
+      </div>
       {newCode && (
         <div className="card mb-6 flex items-center justify-between border-brand-200 bg-brand-50">
           <div>

@@ -17,7 +17,7 @@ export default function DashboardOverviewPage() {
     let cancelled = false;
     (async () => {
       const results = await Promise.allSettled([
-        adminApi.getResidentsInfo(),
+        adminApi.getResidentsCount(),
         adminApi.getSecurityDevices(),
         adminApi.listServiceCharges(),
         adminApi.getEstateWallet(),
@@ -25,7 +25,20 @@ export default function DashboardOverviewPage() {
       if (cancelled) return;
 
       const [residents, devices, charges, wallet] = results;
-      if (residents.status === 'fulfilled') setResidentCount(residents.value.data.length);
+      if (residents.status === 'fulfilled') {
+        // Count field read defensively pending backend /openapi.json confirmation:
+        // tolerates { total }, { count }, or a bare number without breaking on shape drift.
+        const d = residents.value.data as any;
+        const n =
+          typeof d?.total === 'number'
+            ? d.total
+            : typeof d?.count === 'number'
+              ? d.count
+              : typeof d === 'number'
+                ? d
+                : null;
+        if (n !== null) setResidentCount(n);
+      }
       if (devices.status === 'fulfilled') setDeviceCount(devices.value.data.length);
       if (charges.status === 'fulfilled') setChargeCount(charges.value.data.length);
       if (wallet.status === 'fulfilled') {

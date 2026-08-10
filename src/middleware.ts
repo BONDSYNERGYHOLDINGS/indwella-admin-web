@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const AUTH_FLAG_COOKIE = 'indwella_admin_authed';
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const isAuthed = request.cookies.get(AUTH_FLAG_COOKIE)?.value === '1';
   const { pathname } = request.nextUrl;
 

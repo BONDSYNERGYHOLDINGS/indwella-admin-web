@@ -10,8 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@indwella/api-client": "1.0.0",
-    "@indwella/types": "1.0.0",
+    "@indwella/sdk": "file:../indwella-sdk",
     "axios": "^1.7.7",
     "clsx": "^2.1.1",
     "lucide-react": "^0.454.0",

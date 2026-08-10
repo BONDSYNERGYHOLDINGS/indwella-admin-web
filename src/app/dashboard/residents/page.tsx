@@ -5,37 +5,59 @@ import { PageHeader } from '@/components/PageHeader';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
 import { Badge } from '@/components/Badge';
 import { adminApi } from '@/lib/apiClient';
+import type { AdminResidentListItem } from '@indwella/sdk';
 
-interface ResidentRow {
-  id: number;
-  first_name?: string;
-  last_name?: string;
-  email?: string;
-  phone_number?: string;
-  house_address?: string;
-  status?: string;
-  [key: string]: unknown;
-}
+// getResidentsInfo() returns loosely-typed rows while searchResident() is typed
+// as AdminResidentListItem[]; accept either and coerce each field defensively.
+const toResident = (
+  raw: AdminResidentListItem | Record<string, unknown>,
+): AdminResidentListItem => ({
+  id: Number(raw.id ?? 0),
+  first_name: String(raw.first_name ?? ''),
+  last_name: String(raw.last_name ?? ''),
+  email: String(raw.email ?? ''),
+  phone_number: String(raw.phone_number ?? ''),
+  house_address: String(raw.house_address ?? ''),
+  status: (raw.status as AdminResidentListItem['status']) ?? 'pending',
+  is_approved: Boolean(raw.is_approved),
+  created_at: String(raw.created_at ?? ''),
+});
 
 export default function ResidentsPage() {
-  const [residents, setResidents] = useState<ResidentRow[]>([]);
+  const [residents, setResidents] = useState<AdminResidentListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [actioningId, setActioningId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
+  // Server-side search: a non-empty query hits /admin/search-resident, an empty
+  // one lists everything. Defaults to the active query so mutations can reload
+  // the current view.
+  const load = async (q: string = query) => {
     setLoading(true);
+    setError(null);
     try {
-      const { data } = await adminApi.getResidentsInfo();
-      setResidents(data as ResidentRow[]);
+      const trimmed = q.trim();
+      const { data } = trimmed
+        ? await adminApi.searchResident(trimmed)
+        : await adminApi.getResidentsInfo();
+      const rows = Array.isArray(data) ? data : [];
+      setResidents(rows.map(toResident));
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || 'Could not load residents.');
     } finally {
       setLoading(false);
     }
   };
 
+  // Debounce the search input (~350ms). Also drives the initial load (q = '').
   useEffect(() => {
-    load();
-  }, []);
+    const timer = setTimeout(() => {
+      load(query);
+    }, 350);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
 
   const handleApproval = async (residentId: number, action: 'approved' | 'rejected') => {
     setActioningId(residentId);
@@ -47,13 +69,21 @@ export default function ResidentsPage() {
     }
   };
 
-  const filtered = residents.filter((r) => {
-    if (!query) return true;
-    const haystack = `${r.first_name ?? ''} ${r.last_name ?? ''} ${r.email ?? ''} ${r.house_address ?? ''}`.toLowerCase();
-    return haystack.includes(query.toLowerCase());
-  });
+  const handleDelete = async (residentId: number) => {
+    if (!window.confirm('Delete this resident? This cannot be undone.')) return;
+    setActioningId(residentId);
+    setError(null);
+    try {
+      await adminApi.deleteResident(residentId);
+      await load(query);
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || 'Could not delete resident.');
+    } finally {
+      setActioningId(null);
+    }
+  };
 
-  const columns: DataTableColumn<ResidentRow>[] = [
+  const columns: DataTableColumn<AdminResidentListItem>[] = [
     {
       key: 'name',
       header: 'Resident',
@@ -76,23 +106,32 @@ export default function ResidentsPage() {
     {
       key: 'actions',
       header: '',
-      render: (r) =>
-        r.status === 'pending' ? (
-          <div className="flex gap-2">
-            <button
-              disabled={actioningId === r.id}
-              onClick={() => handleApproval(r.id, 'approved')}
-              className="rounded-md bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50">
-              Approve
-            </button>
-            <button
-              disabled={actioningId === r.id}
-              onClick={() => handleApproval(r.id, 'rejected')}
-              className="rounded-md bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50">
-              Reject
-            </button>
-          </div>
-        ) : null,
+      render: (r) => (
+        <div className="flex gap-2">
+          {r.status === 'pending' && (
+            <>
+              <button
+                disabled={actioningId === r.id}
+                onClick={() => handleApproval(r.id, 'approved')}
+                className="rounded-md bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50">
+                Approve
+              </button>
+              <button
+                disabled={actioningId === r.id}
+                onClick={() => handleApproval(r.id, 'rejected')}
+                className="rounded-md bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50">
+                Reject
+              </button>
+            </>
+          )}
+          <button
+            disabled={actioningId === r.id}
+            onClick={() => handleDelete(r.id)}
+            className="rounded-md bg-ink-100 px-2.5 py-1.5 text-xs font-semibold text-ink-600 hover:bg-ink-200 disabled:opacity-50">
+            Delete
+          </button>
+        </div>
+      ),
     },
   ];
 
@@ -110,7 +149,12 @@ export default function ResidentsPage() {
           />
         }
       />
-      <DataTable columns={columns} rows={filtered} isLoading={loading} emptyMessage="No residents found." />
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+      <DataTable columns={columns} rows={residents} isLoading={loading} emptyMessage="No residents found." />
     </div>
   );
 }

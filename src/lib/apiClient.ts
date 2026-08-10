@@ -1,10 +1,9 @@
 'use client';
 
-import { createAdminSdk } from '@indwella/api-client';
+import { createAdminSdk } from '@indwella/sdk';
 import { adminTokenStorage } from './tokenStorage';
 
 const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
-console.log("API URL:", baseURL);
 
 let sessionExpiredHandler: (() => void) | null = null;
 export const setSessionExpiredHandler = (handler: (() => void) | null) => {

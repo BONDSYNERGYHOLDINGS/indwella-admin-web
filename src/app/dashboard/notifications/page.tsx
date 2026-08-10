@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { notificationsApi } from '@/lib/apiClient';
-import type { NotificationOut, BroadcastNotificationRequest } from '@indwella/types';
+import type { NotificationOut, BroadcastNotificationRequest } from '@indwella/sdk';
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<NotificationOut[]>([]);

@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { StatCard } from '@/components/StatCard';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
 import { Badge } from '@/components/Badge';
 import { Wallet } from 'lucide-react';
 import { adminApi } from '@/lib/apiClient';
+import { generateIdempotencyKey, type BankAccountUpdateRequest } from '@indwella/sdk';
 
 interface WalletTxRow {
   id: number;
@@ -24,6 +25,16 @@ export default function WalletPage() {
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawing, setWithdrawing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const idempotencyKeyRef = useRef<string | null>(null);
+
+  const [bankForm, setBankForm] = useState<BankAccountUpdateRequest>({
+    account_name: '',
+    account_number: '',
+    bank_code: '',
+    bank_name: '',
+  });
+  const [savingBank, setSavingBank] = useState(false);
+  const [bankMessage, setBankMessage] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -42,23 +53,60 @@ export default function WalletPage() {
     setLoading(false);
   };
 
+  const loadBankAccount = async () => {
+    try {
+      const { data } = await adminApi.getEstateBankAccount();
+      setBankForm({
+        account_name: data.account_name ?? '',
+        account_number: data.account_number ?? '',
+        bank_code: data.bank_code ?? '',
+        bank_name: data.bank_name ?? '',
+      });
+    } catch {
+      // No bank account configured yet - treat "not set" as normal and leave the form empty.
+    }
+  };
+
   useEffect(() => {
     load();
+    loadBankAccount();
   }, []);
 
   const handleWithdraw = async (e: React.FormEvent) => {
     e.preventDefault();
     setWithdrawing(true);
     setMessage(null);
+    // Generate the key once per distinct withdrawal attempt. A retry of a failed
+    // request reuses the same key (that's the point of idempotency); a genuinely
+    // new withdrawal gets a fresh key after success or when the amount changes.
+    if (idempotencyKeyRef.current === null) {
+      idempotencyKeyRef.current = generateIdempotencyKey('withdraw');
+    }
     try {
-      await adminApi.withdrawFromEstateWallet({ amount: Number(withdrawAmount) });
+      await adminApi.withdrawFromEstateWallet({ amount: Number(withdrawAmount) }, idempotencyKeyRef.current);
       setMessage('Withdrawal request submitted.');
       setWithdrawAmount('');
+      idempotencyKeyRef.current = null;
       await load();
     } catch (err: any) {
       setMessage(err?.response?.data?.detail || 'Could not submit withdrawal.');
     } finally {
       setWithdrawing(false);
+    }
+  };
+
+  const handleSaveBank = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingBank(true);
+    setBankMessage(null);
+    try {
+      await adminApi.setEstateBankAccount(bankForm);
+      setBankMessage('Payout bank account saved.');
+      await loadBankAccount();
+    } catch (err: any) {
+      setBankMessage(err?.response?.data?.detail || 'Could not save bank account.');
+    } finally {
+      setSavingBank(false);
     }
   };
 
@@ -88,12 +136,60 @@ export default function WalletPage() {
               min={0}
               required
               value={withdrawAmount}
-              onChange={(e) => setWithdrawAmount(e.target.value)}
+              onChange={(e) => {
+                setWithdrawAmount(e.target.value);
+                // A changed amount is a new operation - force a fresh key next attempt.
+                idempotencyKeyRef.current = null;
+              }}
               placeholder="Amount (NGN)"
               className="input-field"
             />
             <button type="submit" disabled={withdrawing} className="btn-primary w-full">
               {withdrawing ? 'Submitting…' : 'Request withdrawal'}
+            </button>
+          </form>
+
+          <form onSubmit={handleSaveBank} className="card mt-4 space-y-3">
+            <h3 className="font-semibold text-ink-900">Payout bank account</h3>
+            {bankMessage && <p className="text-sm text-ink-600">{bankMessage}</p>}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-ink-700">Account name</label>
+              <input
+                required
+                value={bankForm.account_name}
+                onChange={(e) => setBankForm((f) => ({ ...f, account_name: e.target.value }))}
+                className="input-field"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-ink-700">Account number</label>
+              <input
+                required
+                value={bankForm.account_number}
+                onChange={(e) => setBankForm((f) => ({ ...f, account_number: e.target.value }))}
+                className="input-field"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-ink-700">Bank code</label>
+              <input
+                required
+                value={bankForm.bank_code}
+                onChange={(e) => setBankForm((f) => ({ ...f, bank_code: e.target.value }))}
+                className="input-field"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-ink-700">Bank name</label>
+              <input
+                required
+                value={bankForm.bank_name}
+                onChange={(e) => setBankForm((f) => ({ ...f, bank_name: e.target.value }))}
+                className="input-field"
+              />
+            </div>
+            <button type="submit" disabled={savingBank} className="btn-primary w-full">
+              {savingBank ? 'Saving…' : 'Save bank account'}
             </button>
           </form>
         </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import type { TokenStorage } from '@indwella/api-client';
+import type { TokenStorage } from '@indwella/sdk';
 
 const ACCESS_KEY = 'indwella_admin_access_token';
 const REFRESH_KEY = 'indwella_admin_refresh_token';

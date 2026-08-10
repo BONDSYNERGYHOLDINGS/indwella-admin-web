@@ -1,0 +1,74 @@
+# @indwella/admin-web
+
+The **admin & superadmin web console** for Indwella — a Next.js 14 (App Router)
+app that talks directly to the Indwella FastAPI backend through the shared
+[`@indwella/sdk`](../indwella-sdk). Nothing here is mocked; every page calls the
+real API.
+
+## Prerequisites
+
+- Node.js 18+
+- The sibling [`indwella-sdk`](../indwella-sdk) repo checked out next to this one
+  (this app depends on it via `"@indwella/sdk": "file:../indwella-sdk"`).
+
+## Setup
+
+```bash
+# 1. Build the SDK first (this app consumes its compiled dist/)
+cd ../indwella-sdk && npm install && npm run build
+
+# 2. Install this app
+cd ../indwella-admin-web && npm install
+
+# 3. Configure the backend URL
+cp .env.example .env        # then edit if pointing at a different backend
+```
+
+`.env`:
+
+```
+NEXT_PUBLIC_API_BASE_URL=https://indwella-server.onrender.com
+```
+
+> After changing SDK **source**, rebuild it (`npm run build` in `indwella-sdk`)
+> so this app picks up the new `dist/`. A `file:` dependency does not rebuild
+> automatically.
+
+## Scripts
+
+| Command | Purpose |
+|---|---|
+| `npm run dev` | Start the dev server (http://localhost:3000). |
+| `npm run typecheck` | `tsc --noEmit` — **the CI gate.** Must be green before merge. |
+| `npm run lint` | Next.js ESLint. |
+| `npm run build` | `next build`. See the caveat below. |
+
+### ⚠️ `next build` caveat
+
+CI verification is **`npm run typecheck`**, not `next build`. There is a known,
+pre-existing static-export break on `/verify-otp` (a `<Suspense>` boundary
+requirement) unrelated to feature work. Do not treat a red `next build` as a
+regression gate; rely on `typecheck` + manual `next dev` click-throughs.
+
+## Architecture
+
+- **Auth model:** one app = one role surface. Login stores tokens in
+  `localStorage` and sets an `indwella_admin_authed` cookie flag; `src/middleware.ts`
+  guards `/dashboard/*` on that flag (coarse defense-in-depth). Fine-grained role
+  gating lives in `src/components/Sidebar.tsx` (per-item `roles`) and per-page.
+- **Data access:** pages import `adminApi` (and friends) from `src/lib/apiClient.ts`,
+  which wraps the role-scoped SDK factory. Never construct `createAdminSdk` inside
+  a page.
+- **Shared types:** imported from `@indwella/sdk` (there is no separate types
+  package).
+
+## Conventions for new pages
+
+Copy `src/app/dashboard/service-charges/page.tsx` — it is the canonical pattern:
+typed form state from the SDK request type, `err?.response?.data?.detail` error
+handling, the `PageHeader` / `DataTable` / `Badge` / `StatCard` components, and the
+`card` / `input-field` / `btn-primary` / `btn-secondary` utility classes. Money
+routes must send an `Idempotency-Key` — use `generateIdempotencyKey()` from the SDK.
+
+See the repo-root [`INTEGRATION_STATUS.md`](../INTEGRATION_STATUS.md) for the
+live integration tracker.
