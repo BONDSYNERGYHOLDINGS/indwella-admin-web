@@ -35,16 +35,7 @@ export default function LoginPage() {
           ? await authApi.superAdminLogin({ email, password })
           : await authApi.login({ email, password });
 
-//       console.log("Axios baseURL:", api.defaults.baseURL);
 
-// const response = await api.post("/admin/login", {
-//   email,
-//   password,
-// });
-
-// console.log(response);
-
-// const { data } = response;
       await login(data.access_token, data.refresh_token, role);
       router.replace('/dashboard');
     } catch (err) {
@@ -86,14 +77,14 @@ export default function LoginPage() {
               }`}>
               Estate Admin
             </button>
-            <button
+            {/* <button
               type="button"
               onClick={() => setRole('superadmin')}
               className={`rounded-md px-3 py-1.5 font-medium transition ${
                 role === 'superadmin' ? 'bg-white text-brand-600 shadow-card' : 'text-ink-500'
               }`}>
               Super Admin
-            </button>
+            </button> */}
           </div>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">

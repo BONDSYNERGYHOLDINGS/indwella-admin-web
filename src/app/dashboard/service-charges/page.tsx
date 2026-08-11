@@ -7,22 +7,39 @@ import { Badge } from '@/components/Badge';
 import { adminApi } from '@/lib/apiClient';
 import type { ServiceChargeOut, ServiceChargeCreateRequest, ServiceChargeUpdateRequest } from '@indwella/sdk';
 
+// Month labels indexed 1–12 (index 0 unused) for the billing-period select and table.
+const MONTHS = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+// charge_type is free-text on the backend (see API.md §9 — e.g. "security"). These are
+// suggestions only; the datalist never blocks a custom value.
+const CHARGE_TYPE_SUGGESTIONS = ['security', 'maintenance', 'waste', 'water', 'electricity', 'general'];
+
+const now = new Date();
 const emptyForm: ServiceChargeCreateRequest = {
   name: '',
-  description: '',
-  charge_type: 'recurring',
+  charge_type: 'security',
   amount: 0,
-  frequency: 'monthly',
+  billing_month: now.getMonth() + 1,
+  billing_year: now.getFullYear(),
   due_date: null,
-  applies_to_all: true,
+  description: '',
 };
 
 const emptyEdit: ServiceChargeUpdateRequest = {
   name: '',
   description: '',
+  charge_type: '',
   amount: 0,
+  billing_month: now.getMonth() + 1,
+  billing_year: now.getFullYear(),
   due_date: null,
   is_active: true,
+};
+
+const formatBillingPeriod = (c: ServiceChargeOut): string => {
+  if (!c.billing_month && !c.billing_year) return '—';
+  const month = c.billing_month ? MONTHS[c.billing_month] ?? '' : '';
+  return `${month} ${c.billing_year ?? ''}`.trim();
 };
 
 export default function ServiceChargesPage() {
@@ -70,7 +87,10 @@ export default function ServiceChargesPage() {
     setEditForm({
       name: c.name,
       description: c.description ?? '',
+      charge_type: c.charge_type,
       amount: c.amount,
+      billing_month: c.billing_month ?? now.getMonth() + 1,
+      billing_year: c.billing_year ?? now.getFullYear(),
       due_date: c.due_date ?? null,
       is_active: c.is_active,
     });
@@ -117,19 +137,24 @@ export default function ServiceChargesPage() {
   };
 
   const handleDelete = async (id: number) => {
+    if (!window.confirm('Delete this service charge? This cannot be undone.')) return;
     await adminApi.deleteServiceCharge(id);
     await load();
   };
 
   const columns: DataTableColumn<ServiceChargeOut>[] = [
     { key: 'name', header: 'Name' },
-    { key: 'charge_type', header: 'Type', render: (c) => <span className="capitalize">{c.charge_type.replace('_', ' ')}</span> },
+    {
+      key: 'charge_type',
+      header: 'Type',
+      render: (c) => <span className="capitalize">{c.charge_type?.replace(/_/g, ' ') ?? '—'}</span>,
+    },
+    { key: 'billing_period', header: 'Billing period', render: (c) => formatBillingPeriod(c) },
     {
       key: 'amount',
       header: 'Amount',
       render: (c) => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(c.amount),
     },
-    { key: 'frequency', header: 'Frequency', render: (c) => c.frequency ?? '—' },
     { key: 'is_active', header: 'Status', render: (c) => <Badge status={c.is_active ? 'active' : 'pending'} /> },
     {
       key: 'actions',
@@ -155,7 +180,7 @@ export default function ServiceChargesPage() {
     <div>
       <PageHeader
         title="Service charges"
-        subtitle="Bill residents for maintenance, security, and other recurring fees."
+        subtitle="Bill residents per period for security, maintenance, and other estate fees."
         action={
           <button
             onClick={() => (isEditing ? cancelEdit() : setShowForm((s) => !s))}
@@ -164,6 +189,12 @@ export default function ServiceChargesPage() {
           </button>
         }
       />
+
+      <datalist id="charge-type-suggestions">
+        {CHARGE_TYPE_SUGGESTIONS.map((t) => (
+          <option key={t} value={t} />
+        ))}
+      </datalist>
 
       {(showForm || isEditing) && (
         <form onSubmit={isEditing ? handleUpdate : handleCreate} className="card mb-6 space-y-4">
@@ -182,22 +213,25 @@ export default function ServiceChargesPage() {
                   />
                 </div>
                 <div>
+                  <label className="mb-1.5 block text-sm font-medium text-ink-700">Charge type</label>
+                  <input
+                    required
+                    list="charge-type-suggestions"
+                    value={editForm.charge_type ?? ''}
+                    onChange={(e) => setEditForm({ ...editForm, charge_type: e.target.value })}
+                    className="input-field"
+                    placeholder="e.g. security"
+                  />
+                </div>
+                <div>
                   <label className="mb-1.5 block text-sm font-medium text-ink-700">Amount (NGN)</label>
                   <input
                     required
                     type="number"
                     min={0}
+                    step="0.01"
                     value={editForm.amount ?? 0}
                     onChange={(e) => setEditForm({ ...editForm, amount: Number(e.target.value) })}
-                    className="input-field"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-ink-700">Due date (optional)</label>
-                  <input
-                    type="date"
-                    value={editForm.due_date ?? ''}
-                    onChange={(e) => setEditForm({ ...editForm, due_date: e.target.value || null })}
                     className="input-field"
                   />
                 </div>
@@ -210,6 +244,39 @@ export default function ServiceChargesPage() {
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                   </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-ink-700">Billing month</label>
+                  <select
+                    value={editForm.billing_month ?? now.getMonth() + 1}
+                    onChange={(e) => setEditForm({ ...editForm, billing_month: Number(e.target.value) })}
+                    className="input-field">
+                    {MONTHS.slice(1).map((m, i) => (
+                      <option key={m} value={i + 1}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-ink-700">Billing year</label>
+                  <input
+                    required
+                    type="number"
+                    min={2020}
+                    value={editForm.billing_year ?? now.getFullYear()}
+                    onChange={(e) => setEditForm({ ...editForm, billing_year: Number(e.target.value) })}
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-ink-700">Due date (optional)</label>
+                  <input
+                    type="date"
+                    value={editForm.due_date ?? ''}
+                    onChange={(e) => setEditForm({ ...editForm, due_date: e.target.value || null })}
+                    className="input-field"
+                  />
                 </div>
               </div>
               <div>
@@ -236,39 +303,61 @@ export default function ServiceChargesPage() {
                   />
                 </div>
                 <div>
+                  <label className="mb-1.5 block text-sm font-medium text-ink-700">Charge type</label>
+                  <input
+                    required
+                    list="charge-type-suggestions"
+                    value={form.charge_type}
+                    onChange={(e) => setForm({ ...form, charge_type: e.target.value })}
+                    className="input-field"
+                    placeholder="e.g. security"
+                  />
+                </div>
+                <div>
                   <label className="mb-1.5 block text-sm font-medium text-ink-700">Amount (NGN)</label>
                   <input
                     required
                     type="number"
                     min={0}
+                    step="0.01"
                     value={form.amount}
                     onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })}
                     className="input-field"
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-ink-700">Charge type</label>
+                  <label className="mb-1.5 block text-sm font-medium text-ink-700">Billing month</label>
                   <select
-                    value={form.charge_type}
-                    onChange={(e) => setForm({ ...form, charge_type: e.target.value as ServiceChargeCreateRequest['charge_type'] })}
+                    value={form.billing_month}
+                    onChange={(e) => setForm({ ...form, billing_month: Number(e.target.value) })}
                     className="input-field">
-                    <option value="recurring">Recurring</option>
-                    <option value="one_off">One-off</option>
+                    {MONTHS.slice(1).map((m, i) => (
+                      <option key={m} value={i + 1}>
+                        {m}
+                      </option>
+                    ))}
                   </select>
                 </div>
-                {form.charge_type === 'recurring' && (
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-ink-700">Frequency</label>
-                    <select
-                      value={form.frequency ?? 'monthly'}
-                      onChange={(e) => setForm({ ...form, frequency: e.target.value as ServiceChargeCreateRequest['frequency'] })}
-                      className="input-field">
-                      <option value="monthly">Monthly</option>
-                      <option value="quarterly">Quarterly</option>
-                      <option value="yearly">Yearly</option>
-                    </select>
-                  </div>
-                )}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-ink-700">Billing year</label>
+                  <input
+                    required
+                    type="number"
+                    min={2020}
+                    value={form.billing_year}
+                    onChange={(e) => setForm({ ...form, billing_year: Number(e.target.value) })}
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-ink-700">Due date (optional)</label>
+                  <input
+                    type="date"
+                    value={form.due_date ?? ''}
+                    onChange={(e) => setForm({ ...form, due_date: e.target.value || null })}
+                    className="input-field"
+                  />
+                </div>
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-ink-700">Description (optional)</label>

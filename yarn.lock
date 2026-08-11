@@ -44,10 +44,10 @@ __metadata:
 
 "@indwella/sdk@file:../indwella-sdk::locator=%40indwella%2Fadmin-web%40workspace%3A.":
   version: 1.0.0
-  resolution: "@indwella/sdk@file:../indwella-sdk#../indwella-sdk::hash=4ea79b&locator=%40indwella%2Fadmin-web%40workspace%3A."
+  resolution: "@indwella/sdk@file:../indwella-sdk#../indwella-sdk::hash=3bba03&locator=%40indwella%2Fadmin-web%40workspace%3A."
   dependencies:
     axios: "npm:^1.7.7"
-  checksum: 10c0/e20fcfe95bdee1aa5191fbcefb46a0a4fb4b02c62cfb49c750eb3c8f20f5f8e3393e2186858768a6c8ee3326aef9f1fb15dfc62ba7ae056d6d855850a5b41f40
+  checksum: 10c0/89ceea0d57666adec828858d9290883b58fa9ffddcf831d1023fb6c8e564b42dcb1e397bae7e2665debfcc3e3b16f25c4cdd2f06bb1e996c9465d974a7241214
   languageName: node
   linkType: hard
 
@@ -702,9 +702,9 @@ __metadata:
   linkType: hard
 
 "electron-to-chromium@npm:^1.5.402":
-  version: 1.5.403
-  resolution: "electron-to-chromium@npm:1.5.403"
-  checksum: 10c0/42a49260a162bb08f29b6c4dcf3e5970327efeeece14248450d66175b5197dc92145a20e2e239840bcbc848cbbeddae04248d9525abb3466e6fdfd889a48d06d
+  version: 1.5.404
+  resolution: "electron-to-chromium@npm:1.5.404"
+  checksum: 10c0/cb927cdd422b5bfab5e3ac4be5bf200232fb54c1b22af8c80e646fd980c850af0b1a07f4172c9fa5aed760efcb11779bf3d1e4315dcf8dab7d005c932e12516c
   languageName: node
   linkType: hard
 

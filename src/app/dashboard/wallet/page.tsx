@@ -23,6 +23,7 @@ export default function WalletPage() {
   const [transactions, setTransactions] = useState<WalletTxRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawReason, setWithdrawReason] = useState('');
   const [withdrawing, setWithdrawing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const idempotencyKeyRef = useRef<string | null>(null);
@@ -83,9 +84,14 @@ export default function WalletPage() {
       idempotencyKeyRef.current = generateIdempotencyKey('withdraw');
     }
     try {
-      await adminApi.withdrawFromEstateWallet({ amount: Number(withdrawAmount) }, idempotencyKeyRef.current);
+      const reason = withdrawReason.trim();
+      await adminApi.withdrawFromEstateWallet(
+        { amount: Number(withdrawAmount), ...(reason ? { reason } : {}) },
+        idempotencyKeyRef.current,
+      );
       setMessage('Withdrawal request submitted.');
       setWithdrawAmount('');
+      setWithdrawReason('');
       idempotencyKeyRef.current = null;
       await load();
     } catch (err: any) {
@@ -142,6 +148,17 @@ export default function WalletPage() {
                 idempotencyKeyRef.current = null;
               }}
               placeholder="Amount (NGN)"
+              className="input-field"
+            />
+            <input
+              type="text"
+              value={withdrawReason}
+              onChange={(e) => {
+                setWithdrawReason(e.target.value);
+                // Reason is part of the request - a changed reason is a new operation too.
+                idempotencyKeyRef.current = null;
+              }}
+              placeholder="Reason (optional)"
               className="input-field"
             />
             <button type="submit" disabled={withdrawing} className="btn-primary w-full">

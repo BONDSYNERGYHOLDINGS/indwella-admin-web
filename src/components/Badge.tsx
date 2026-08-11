@@ -1,5 +1,6 @@
 const STATUS_STYLES: Record<string, string> = {
   approved: 'bg-emerald-50 text-emerald-700',
+  confirmed: 'bg-emerald-50 text-emerald-700',
   success: 'bg-emerald-50 text-emerald-700',
   active: 'bg-emerald-50 text-emerald-700',
   pending: 'bg-amber-50 text-amber-700',

@@ -16,7 +16,7 @@ export default function ElectricityPage() {
       try {
         const { data } = await adminApi.getElectricityTariff();
         setPricePerKwh(String(data.price_per_kwh));
-        setCurrency(data.currency);
+        setCurrency(data.currency ?? 'NGN');
       } catch {
         // No tariff configured yet - leave fields blank for the admin to set one.
       } finally {

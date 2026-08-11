@@ -59,11 +59,14 @@ export default function ResidentsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
-  const handleApproval = async (residentId: number, action: 'approved' | 'rejected') => {
+  const handleApproval = async (residentId: number, status: 'confirmed' | 'rejected') => {
     setActioningId(residentId);
+    setError(null);
     try {
-      await adminApi.setResidentApproval(residentId, { action });
+      await adminApi.setResidentApproval(residentId, { status });
       await load();
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || 'Could not update resident status.');
     } finally {
       setActioningId(null);
     }
@@ -112,7 +115,7 @@ export default function ResidentsPage() {
             <>
               <button
                 disabled={actioningId === r.id}
-                onClick={() => handleApproval(r.id, 'approved')}
+                onClick={() => handleApproval(r.id, 'confirmed')}
                 className="rounded-md bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50">
                 Approve
               </button>
