@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { adminTokenStorage } from './tokenStorage';
+import { adminTokenStorage, hasAuthFlag } from './tokenStorage';
 import { authApi, setSessionExpiredHandler } from './apiClient';
 
 export type AdminRole = 'admin' | 'superadmin';
@@ -11,7 +11,7 @@ type AuthContextType = {
   isAuthenticated: boolean;
   isAuthLoading: boolean;
   role: AdminRole | null;
-  login: (token: string, refreshToken: string, role: AdminRole) => Promise<void>;
+  login: (token: string | null | undefined, refreshToken: string | null | undefined, role: AdminRole) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -35,9 +35,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
+      // In the cookie-auth flow the real token is an httpOnly cookie we can't
+      // read, so "am I logged in?" is answered by the flag cookie set at login.
+      // Fall back to a localStorage token if one was persisted (body-token flow).
       const token = await adminTokenStorage.getAccessToken();
       const storedRole = typeof window !== 'undefined' ? window.localStorage.getItem(ROLE_KEY) : null;
-      if (token) {
+      if (hasAuthFlag() || token) {
         setIsAuthenticated(true);
         setRole((storedRole as AdminRole) ?? 'admin');
       }
@@ -45,8 +48,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  const login = async (token: string, refreshToken: string, loggedInRole: AdminRole) => {
-    await adminTokenStorage.setTokens({ accessToken: token, refreshToken });
+  const login = async (
+    token: string | null | undefined,
+    refreshToken: string | null | undefined,
+    loggedInRole: AdminRole,
+  ) => {
+    // setTokens tolerates missing tokens (cookie-only login): it still sets the
+    // auth-flag cookie, and persists tokens only if the backend returned them.
+    await adminTokenStorage.setTokens({ accessToken: token ?? '', refreshToken: refreshToken ?? '' });
     window.localStorage.setItem(ROLE_KEY, loggedInRole);
     setRole(loggedInRole);
     setIsAuthenticated(true);

@@ -35,8 +35,11 @@ export default function LoginPage() {
           ? await authApi.superAdminLogin({ email, password })
           : await authApi.login({ email, password });
 
-
-      await login(data.access_token, data.refresh_token, role);
+      // The backend authenticates the admin via the httpOnly `admin_access_token`
+      // cookie it sets on this response (the browser stores it because the SDK
+      // sends credentials). Body tokens are optional - pass them through if
+      // present (enables silent refresh) but don't depend on them.
+      await login(data?.access_token, data?.refresh_token, role);
       router.replace('/dashboard');
     } catch (err) {
       setError(getErrorMessage(err));

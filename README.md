@@ -27,8 +27,17 @@ cp .env.example .env        # then edit if pointing at a different backend
 `.env`:
 
 ```
-NEXT_PUBLIC_API_BASE_URL=https://indwella-server.onrender.com
+# Browser calls this app's own origin; the Next rewrite proxies /api/* to the
+# backend so the httpOnly auth cookie stays first-party. See ADMIN_AUTH.md.
+NEXT_PUBLIC_API_BASE_URL=/api
+API_PROXY_TARGET=https://indwella-server.onrender.com
 ```
+
+> **Auth is cookie-based.** The admin console does not send Bearer tokens — it
+> relies on the httpOnly `admin_access_token` cookie the backend sets at
+> `/admin/login`, which requires same-origin calls (hence the `/api` proxy).
+> Full details, verification steps, and the cross-origin rationale are in
+> [`../ADMIN_AUTH.md`](../ADMIN_AUTH.md).
 
 > After changing SDK **source**, rebuild it (`npm run build` in `indwella-sdk`)
 > so this app picks up the new `dist/`. A `file:` dependency does not rebuild
