@@ -5,19 +5,24 @@ import { PageHeader } from '@/components/PageHeader';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
 import { Badge } from '@/components/Badge';
 import { adminApi } from '@/lib/apiClient';
-import type { ServiceChargeOut, ServiceChargeCreateRequest, ServiceChargeUpdateRequest } from '@indwella/sdk';
+import { getApiErrorMessage } from '@/lib/errorMessage';
+import type { ServiceChargeOut, ServiceChargeCreateRequest, ServiceChargeUpdateRequest, ServiceChargeType } from '@indwella/sdk';
 
 // Month labels indexed 1–12 (index 0 unused) for the billing-period select and table.
 const MONTHS = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-// charge_type is free-text on the backend (see API.md §9 — e.g. "security"). These are
-// suggestions only; the datalist never blocks a custom value.
-const CHARGE_TYPE_SUGGESTIONS = ['security', 'maintenance', 'waste', 'water', 'electricity', 'general'];
+// charge_type is the billing cadence, not a free-text category (the category/label
+// is `name`, e.g. "Estate Security Levy") - confirmed against the live backend,
+// which 422s on anything other than these two values. See docs/ENGINEERING-HANDOFF.md.
+const CHARGE_TYPE_OPTIONS: { value: ServiceChargeType; label: string }[] = [
+  { value: 'recurring', label: 'Recurring (bills every period)' },
+  { value: 'one_off', label: 'One-off (bills once)' },
+];
 
 const now = new Date();
 const emptyForm: ServiceChargeCreateRequest = {
   name: '',
-  charge_type: 'security',
+  charge_type: 'recurring',
   amount: 0,
   billing_month: now.getMonth() + 1,
   billing_year: now.getFullYear(),
@@ -28,13 +33,17 @@ const emptyForm: ServiceChargeCreateRequest = {
 const emptyEdit: ServiceChargeUpdateRequest = {
   name: '',
   description: '',
-  charge_type: '',
+  charge_type: 'recurring',
   amount: 0,
   billing_month: now.getMonth() + 1,
   billing_year: now.getFullYear(),
   due_date: null,
   is_active: true,
 };
+
+// ServiceChargeOut.charge_type is read as `string` (defensive for any legacy
+// row), but the edit form needs a valid ServiceChargeType to populate its select.
+const toChargeType = (value: string): ServiceChargeType => (value === 'one_off' ? 'one_off' : 'recurring');
 
 const formatBillingPeriod = (c: ServiceChargeOut): string => {
   if (!c.billing_month && !c.billing_year) return '—';
@@ -87,7 +96,7 @@ export default function ServiceChargesPage() {
     setEditForm({
       name: c.name,
       description: c.description ?? '',
-      charge_type: c.charge_type,
+      charge_type: toChargeType(c.charge_type),
       amount: c.amount,
       billing_month: c.billing_month ?? now.getMonth() + 1,
       billing_year: c.billing_year ?? now.getFullYear(),
@@ -114,7 +123,7 @@ export default function ServiceChargesPage() {
       setShowForm(false);
       await load();
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Could not create service charge.');
+      setError(getApiErrorMessage(err, 'Could not create service charge.'));
     } finally {
       setSubmitting(false);
     }
@@ -130,7 +139,7 @@ export default function ServiceChargesPage() {
       cancelEdit();
       await load();
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Could not update service charge.');
+      setError(getApiErrorMessage(err, 'Could not update service charge.'));
     } finally {
       setSubmitting(false);
     }
@@ -190,12 +199,6 @@ export default function ServiceChargesPage() {
         }
       />
 
-      <datalist id="charge-type-suggestions">
-        {CHARGE_TYPE_SUGGESTIONS.map((t) => (
-          <option key={t} value={t} />
-        ))}
-      </datalist>
-
       {(showForm || isEditing) && (
         <form onSubmit={isEditing ? handleUpdate : handleCreate} className="card mb-6 space-y-4">
           {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">{error}</div>}
@@ -214,14 +217,17 @@ export default function ServiceChargesPage() {
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-ink-700">Charge type</label>
-                  <input
+                  <select
                     required
-                    list="charge-type-suggestions"
-                    value={editForm.charge_type ?? ''}
-                    onChange={(e) => setEditForm({ ...editForm, charge_type: e.target.value })}
-                    className="input-field"
-                    placeholder="e.g. security"
-                  />
+                    value={editForm.charge_type ?? 'recurring'}
+                    onChange={(e) => setEditForm({ ...editForm, charge_type: e.target.value as ServiceChargeType })}
+                    className="input-field">
+                    {CHARGE_TYPE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-ink-700">Amount (NGN)</label>
@@ -304,14 +310,17 @@ export default function ServiceChargesPage() {
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-ink-700">Charge type</label>
-                  <input
+                  <select
                     required
-                    list="charge-type-suggestions"
                     value={form.charge_type}
-                    onChange={(e) => setForm({ ...form, charge_type: e.target.value })}
-                    className="input-field"
-                    placeholder="e.g. security"
-                  />
+                    onChange={(e) => setForm({ ...form, charge_type: e.target.value as ServiceChargeType })}
+                    className="input-field">
+                    {CHARGE_TYPE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-ink-700">Amount (NGN)</label>

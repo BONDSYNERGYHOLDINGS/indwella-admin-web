@@ -5,22 +5,21 @@ import { PageHeader } from '@/components/PageHeader';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
 import { Badge } from '@/components/Badge';
 import { adminApi } from '@/lib/apiClient';
+import { getApiErrorMessage } from '@/lib/errorMessage';
 import type { AdminResidentListItem } from '@indwella/sdk';
 
 // getResidentsInfo() returns loosely-typed rows while searchResident() is typed
 // as AdminResidentListItem[]; accept either and coerce each field defensively.
+// Confirmed live shape: { id, full_name, house_address, phone_number, status }
+// - no first_name/last_name/email come back from the backend.
 const toResident = (
   raw: AdminResidentListItem | Record<string, unknown>,
 ): AdminResidentListItem => ({
   id: Number(raw.id ?? 0),
-  first_name: String(raw.first_name ?? ''),
-  last_name: String(raw.last_name ?? ''),
-  email: String(raw.email ?? ''),
+  full_name: String(raw.full_name ?? ''),
   phone_number: String(raw.phone_number ?? ''),
   house_address: String(raw.house_address ?? ''),
   status: (raw.status as AdminResidentListItem['status']) ?? 'pending',
-  is_approved: Boolean(raw.is_approved),
-  created_at: String(raw.created_at ?? ''),
 });
 
 export default function ResidentsPage() {
@@ -44,7 +43,7 @@ export default function ResidentsPage() {
       const rows = Array.isArray(data) ? data : [];
       setResidents(rows.map(toResident));
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Could not load residents.');
+      setError(getApiErrorMessage(err, 'Could not load residents.'));
     } finally {
       setLoading(false);
     }
@@ -63,10 +62,10 @@ export default function ResidentsPage() {
     setActioningId(residentId);
     setError(null);
     try {
-      await adminApi.setResidentApproval(residentId, { status });
+      await adminApi.setResidentApproval(residentId, { action: status });
       await load();
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Could not update resident status.');
+      setError(getApiErrorMessage(err, 'Could not update resident status.'));
     } finally {
       setActioningId(null);
     }
@@ -80,7 +79,7 @@ export default function ResidentsPage() {
       await adminApi.deleteResident(residentId);
       await load(query);
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Could not delete resident.');
+      setError(getApiErrorMessage(err, 'Could not delete resident.'));
     } finally {
       setActioningId(null);
     }
@@ -88,16 +87,9 @@ export default function ResidentsPage() {
 
   const columns: DataTableColumn<AdminResidentListItem>[] = [
     {
-      key: 'name',
+      key: 'full_name',
       header: 'Resident',
-      render: (r) => (
-        <div>
-          <p className="font-medium text-ink-900">
-            {r.first_name} {r.last_name}
-          </p>
-          <p className="text-xs text-ink-400">{r.email}</p>
-        </div>
-      ),
+      render: (r) => <p className="font-medium text-ink-900">{r.full_name}</p>,
     },
     { key: 'house_address', header: 'Address' },
     { key: 'phone_number', header: 'Phone' },

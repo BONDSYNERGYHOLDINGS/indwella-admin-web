@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { passwordResetApi } from '@/lib/apiClient';
 import { AuthSplitLayout } from '@/components/AuthSplitLayout';
+import { getApiErrorMessage } from '@/lib/errorMessage';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -27,7 +28,7 @@ export default function ResetPasswordPage() {
       });
       router.push('/login');
     } catch (err: any) {
-      setError(err?.response?.data?.detail || err?.response?.data?.message || 'Could not reset password.');
+      setError(getApiErrorMessage(err, 'Could not reset password.'));
     } finally {
       setLoading(false);
     }

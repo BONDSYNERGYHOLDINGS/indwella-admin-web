@@ -7,6 +7,7 @@ import { DataTable, type DataTableColumn } from '@/components/DataTable';
 import { Badge } from '@/components/Badge';
 import { Wallet } from 'lucide-react';
 import { adminApi } from '@/lib/apiClient';
+import { getApiErrorMessage } from '@/lib/errorMessage';
 import { generateIdempotencyKey, type BankAccountUpdateRequest } from '@indwella/sdk';
 
 interface WalletTxRow {
@@ -95,7 +96,7 @@ export default function WalletPage() {
       idempotencyKeyRef.current = null;
       await load();
     } catch (err: any) {
-      setMessage(err?.response?.data?.detail || 'Could not submit withdrawal.');
+      setMessage(getApiErrorMessage(err, 'Could not submit withdrawal.'));
     } finally {
       setWithdrawing(false);
     }
@@ -110,7 +111,7 @@ export default function WalletPage() {
       setBankMessage('Payout bank account saved.');
       await loadBankAccount();
     } catch (err: any) {
-      setBankMessage(err?.response?.data?.detail || 'Could not save bank account.');
+      setBankMessage(getApiErrorMessage(err, 'Could not save bank account.'));
     } finally {
       setSavingBank(false);
     }

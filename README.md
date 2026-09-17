@@ -43,6 +43,12 @@ API_PROXY_TARGET=https://indwella-server.onrender.com
 > so this app picks up the new `dist/`. A `file:` dependency does not rebuild
 > automatically.
 
+> **Login timing out?** `API_PROXY_TARGET` defaults to a Render-hosted
+> backend, which can cold-start (30-60s+) after being idle. `apiClient.ts`
+> sets a longer client timeout than the SDK default to survive this — see
+> `docs/AUTHENTICATION.md` ("Login timeouts on Render cold starts") before
+> assuming a code regression.
+
 ## Scripts
 
 | Command | Purpose |

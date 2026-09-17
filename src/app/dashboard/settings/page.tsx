@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { authApi } from '@/lib/apiClient';
 import { useAuth } from '@/lib/auth-context';
+import { getApiErrorMessage } from '@/lib/errorMessage';
 
 export default function SettingsPage() {
   const { role } = useAuth();
@@ -24,7 +25,7 @@ export default function SettingsPage() {
       setOldPassword('');
       setNewPassword('');
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Could not update password.');
+      setError(getApiErrorMessage(err, 'Could not update password.'));
     } finally {
       setSaving(false);
     }

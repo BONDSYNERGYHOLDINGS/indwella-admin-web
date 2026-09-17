@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { adminApi } from '@/lib/apiClient';
+import { getApiErrorMessage } from '@/lib/errorMessage';
 
 export default function ElectricityPage() {
   const [pricePerKwh, setPricePerKwh] = useState('');
@@ -33,7 +34,7 @@ export default function ElectricityPage() {
       await adminApi.setElectricityTariff({ price_per_kwh: Number(pricePerKwh), currency });
       setMessage('Tariff updated.');
     } catch (err: any) {
-      setMessage(err?.response?.data?.detail || 'Could not update tariff.');
+      setMessage(getApiErrorMessage(err, 'Could not update tariff.'));
     } finally {
       setSaving(false);
     }

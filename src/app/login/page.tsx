@@ -3,17 +3,36 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Eye, EyeOff } from 'lucide-react';
 import { api, authApi } from '@/lib/apiClient';
 import { useAuth, type AdminRole } from '@/lib/auth-context';
+import { getApiErrorMessage } from '@/lib/errorMessage';
 
-function getErrorMessage(err: unknown): string {
-  const anyErr = err as { response?: { data?: { detail?: string; message?: string } }; message?: string };
-  return (
-    anyErr?.response?.data?.detail ||
-    anyErr?.response?.data?.message ||
-    anyErr?.message ||
-    'Something went wrong. Please try again.'
-  );
+// A cold Render backend doesn't just respond slowly - the Next.js rewrite
+// proxy's connection to it can reset outright partway through the boot
+// window (observed: ECONNRESET/"socket hang up" ~30s in, surfaced to the
+// browser as a 5xx or network error), independent of the client-side
+// axios timeout. A retry shortly after almost always succeeds because the
+// backend has finished waking up by then. See docs/AUTHENTICATION.md,
+// "Login timeouts on Render cold starts."
+function isLikelyColdStartError(err: unknown): boolean {
+  const anyErr = err as { code?: string; response?: { status?: number } };
+  if (anyErr?.code === 'ECONNABORTED') return true;
+  const status = anyErr?.response?.status;
+  return typeof status === 'number' && status >= 500;
+}
+
+const COLD_START_RETRY_DELAY_MS = 1500;
+
+async function withColdStartRetry<T>(fn: () => Promise<T>, onRetry: () => void): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (!isLikelyColdStartError(err)) throw err;
+    onRetry();
+    await new Promise((resolve) => setTimeout(resolve, COLD_START_RETRY_DELAY_MS));
+    return fn();
+  }
 }
 
 export default function LoginPage() {
@@ -23,17 +42,22 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    setRetrying(false);
     try {
-      const { data } =
+      const doLogin = () =>
         role === 'superadmin'
-          ? await authApi.superAdminLogin({ email, password })
-          : await authApi.login({ email, password });
+          ? authApi.superAdminLogin({ email, password })
+          : authApi.login({ email, password });
+
+      const { data } = await withColdStartRetry(doLogin, () => setRetrying(true));
 
       // The backend authenticates the admin via the httpOnly `admin_access_token`
       // cookie it sets on this response (the browser stores it because the SDK
@@ -42,9 +66,10 @@ export default function LoginPage() {
       await login(data?.access_token, data?.refresh_token, role);
       router.replace('/dashboard');
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(getApiErrorMessage(err, 'Something went wrong. Please try again.'));
     } finally {
       setLoading(false);
+      setRetrying(false);
     }
   };
 
@@ -120,19 +145,29 @@ export default function LoginPage() {
                   Forgot password?
                 </Link>
               </div>
-              <input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="input-field"
-                autoComplete="current-password"
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="input-field pr-10"
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-ink-400 hover:text-ink-600"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  tabIndex={-1}>
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
             <button type="submit" disabled={loading} className="btn-primary w-full">
-              {loading ? 'Signing in…' : 'Sign in'}
+              {retrying ? 'Server is waking up, retrying…' : loading ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
         </div>

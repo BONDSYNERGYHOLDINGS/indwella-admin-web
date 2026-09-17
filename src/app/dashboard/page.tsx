@@ -26,17 +26,20 @@ export default function DashboardOverviewPage() {
 
       const [residents, devices, charges, wallet] = results;
       if (residents.status === 'fulfilled') {
-        // Count field read defensively pending backend /openapi.json confirmation:
-        // tolerates { total }, { count }, or a bare number without breaking on shape drift.
+        // Confirmed live shape is { total_residents }; `total`/`count`/bare-number
+        // are kept as fallbacks only in case that ever changes again, not because
+        // any of them have been observed.
         const d = residents.value.data as any;
         const n =
-          typeof d?.total === 'number'
-            ? d.total
-            : typeof d?.count === 'number'
-              ? d.count
-              : typeof d === 'number'
-                ? d
-                : null;
+          typeof d?.total_residents === 'number'
+            ? d.total_residents
+            : typeof d?.total === 'number'
+              ? d.total
+              : typeof d?.count === 'number'
+                ? d.count
+                : typeof d === 'number'
+                  ? d
+                  : null;
         if (n !== null) setResidentCount(n);
       }
       if (devices.status === 'fulfilled') setDeviceCount(devices.value.data.length);

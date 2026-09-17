@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { passwordResetApi } from '@/lib/apiClient';
 import { AuthSplitLayout } from '@/components/AuthSplitLayout';
+import { getApiErrorMessage } from '@/lib/errorMessage';
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -19,7 +20,7 @@ export default function ForgotPasswordPage() {
       await passwordResetApi.requestReset({ email });
       router.push(`/verify-otp?email=${encodeURIComponent(email)}`);
     } catch (err: any) {
-      setError(err?.response?.data?.detail || err?.response?.data?.message || 'Could not send reset code.');
+      setError(getApiErrorMessage(err, 'Could not send reset code.'));
     } finally {
       setLoading(false);
     }

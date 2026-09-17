@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { passwordResetApi } from '@/lib/apiClient';
 import { AuthSplitLayout } from '@/components/AuthSplitLayout';
+import { getApiErrorMessage } from '@/lib/errorMessage';
 
 export default function VerifyOtpPage() {
   const router = useRouter();
@@ -21,7 +22,7 @@ export default function VerifyOtpPage() {
       await passwordResetApi.verifyOtpAdmin({ email, otp });
       router.push(`/reset-password?email=${encodeURIComponent(email)}`);
     } catch (err: any) {
-      setError(err?.response?.data?.detail || err?.response?.data?.message || 'Invalid or expired code.');
+      setError(getApiErrorMessage(err, 'Invalid or expired code.'));
     } finally {
       setLoading(false);
     }

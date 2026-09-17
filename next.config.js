@@ -12,7 +12,7 @@
 // and sent automatically regardless of its SameSite attribute, and CORS no
 // longer applies to the browser at all.
 const API_PROXY_TARGET =
-  process.env.API_PROXY_TARGET || 'https://indwella-server.onrender.com';
+  process.env.API_PROXY_TARGET ?? 'https://indwella-server.onrender.com';
 
 const nextConfig = {
   reactStrictMode: true,
