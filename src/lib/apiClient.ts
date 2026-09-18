@@ -22,7 +22,9 @@ export const adminSdk = createAdminSdk({
   baseURL,
   storage: adminTokenStorage,
   timeoutMs: REQUEST_TIMEOUT_MS,
+   withCredentials: true,
   onSessionExpired: () => sessionExpiredHandler?.(),
+  
 });
 
 export const api = adminSdk.client.axios;
