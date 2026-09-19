@@ -94,18 +94,39 @@ had finished waking up. Because the cold start typically completes shortly
 after, the backend looks "active" moments later, which made this look like a
 flaky/intermittent bug rather than a fixed, reproducible timeout race.
 
-**Fix:** `apiClient.ts` now passes an explicit longer `timeoutMs` (see the
-constant at the top of the file) when constructing `createAdminSdk`, and
-`login/page.tsx`'s `getErrorMessage()` special-cases a timeout
-(`err.code === 'ECONNABORTED'`) with a message that tells the admin the
-server may be waking up and to retry, instead of surfacing the raw axios
-message. This does not eliminate the underlying cold start — only backend
-infra changes (a paid Render tier, or a keep-warm ping) can do that — it
-just gives the request enough time to survive one, and gives the user an
-accurate explanation when it still doesn't.
+**Fix, part 1 (timeout):** `apiClient.ts` now passes an explicit longer
+`timeoutMs` (45s — see the constant at the top of the file) when constructing
+`createAdminSdk`, and the shared `getApiErrorMessage()` helper
+(`src/lib/errorMessage.ts`, used across the app — see `API-USAGE.md`)
+special-cases a timeout (`err.code === 'ECONNABORTED'`) with a message that
+tells the admin the server may be waking up and to retry, instead of
+surfacing the raw axios message.
 
-If login timeouts come back, check first whether `API_PROXY_TARGET` is still
-a Render free/starter-tier URL before assuming a frontend regression.
+**Fix, part 2 (connection reset mid-boot):** a longer timeout alone wasn't
+enough — a cold Render backend doesn't just respond slowly, its connection to
+the Next.js rewrite proxy can reset outright partway through the boot window
+(observed: `ECONNRESET`/"socket hang up" roughly 30s in, surfaced to the
+browser as a 5xx or a network error), independent of the client-side axios
+timeout. `login/page.tsx` now wraps the login call in
+`withColdStartRetry()`: if the first attempt fails with either an
+`ECONNABORTED` timeout or an HTTP 5xx (`isLikelyColdStartError()`), it waits
+1.5s and retries **once** more, flipping the submit button's label to
+"Server is waking up, retrying…" in the meantime. A retry shortly after
+almost always succeeds because the backend has finished waking up by then.
+
+Neither fix eliminates the underlying cold start — only backend infra
+changes (a paid Render tier, or a keep-warm ping) can do that. Together they
+give the request enough time and one automatic retry to survive one, and
+give the user an accurate explanation when it still doesn't. The retry
+wrapper currently only wraps the login call, not every mutating request
+across the app — if the same cold-start failure mode is observed elsewhere
+(e.g. the first service-charge create of a session), the same
+`withColdStartRetry` pattern is the one to copy rather than inventing a new
+one.
+
+If login timeouts or resets come back, check first whether `API_PROXY_TARGET`
+is still a Render free/starter-tier URL before assuming a frontend
+regression.
 
 ## Superadmin login — code-complete, UI-unreachable
 

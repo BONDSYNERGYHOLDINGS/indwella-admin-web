@@ -25,17 +25,38 @@ App-specific bugs, limitations, and next steps. Platform-wide items are in
    "bug" in the sense of broken behavior, but worth surfacing clearly: if
    product intent is for superadmins to actually use this app, this is a
    one-line fix (uncomment the button) blocking an entire role.
-4. **`next build` has a known pre-existing break** on `/verify-otp` (a
-   `<Suspense>` boundary requirement for `useSearchParams()`), per the app's
-   own README. Not something this review discovered independently — flagged
-   here because it's easy for a new engineer to mistake for a regression
-   they caused. `yarn typecheck` is the real gate.
+4. ~~`next build` broke on `/verify-otp`~~ **Fixed** — `useSearchParams()`
+   opts a page out of static prerendering unless it's isolated inside a
+   `<Suspense>` boundary; `next dev`/`next start` never surfaced this
+   because only the static-export step during `next build` triggers the
+   prerender, which is what made it look like an unrelated/pre-existing
+   quirk rather than a real, fixable bug. `verify-otp/page.tsx` now wraps
+   its `useSearchParams()`-dependent form in a dedicated inner component and
+   wraps *that* in `<Suspense>` from the page's default export, with the
+   same `AuthSplitLayout` shell as the fallback so there's no layout flash.
+   `next build` now completes cleanly end-to-end — it is no longer only
+   `yarn typecheck` that gates this app; a red `next build` should be
+   treated as a real regression again.
+5. ~~Every form crashed React on a 422 validation error~~ **Fixed** —
+   FastAPI returns `detail` as an array of Pydantic error objects on a 422,
+   not a string; every form used to render that array directly as JSX and
+   crash with "Objects are not valid as a React child." A new shared
+   `getApiErrorMessage()` (`src/lib/errorMessage.ts`) normalizes both shapes
+   to a string and is now used in every form's catch block except the
+   Overview page. See `API-USAGE.md`.
 
 ## Limitations worth knowing before extending this app
 
 - **No shared `<ErrorBanner>` component** despite a well-factored shared
   component set otherwise (`DataTable`, `Badge`, `PageHeader`, `StatCard`) —
-  the red error-banner markup is copy-pasted into every form.
+  the red error-banner markup is copy-pasted into every form. (Error
+  *message extraction* is centralized via `getApiErrorMessage()`; only the
+  banner JSX/classes are duplicated — see `API-USAGE.md`.)
+- **Cold-start retry only covers login.** `withColdStartRetry()` in
+  `login/page.tsx` (see `AUTHENTICATION.md`) is a one-off wrapper, not a
+  reusable utility — if the same Render cold-start failure mode shows up on
+  another mutating request (most likely the first action of a session right
+  after login), it isn't automatically retried there yet.
 - **`zustand` is installed but unused** — if a cross-page shared-state need
   ever arises (e.g. caching the resident list so the Overview page and the
   Residents page don't both fetch it independently), this is already
@@ -73,3 +94,7 @@ App-specific bugs, limitations, and next steps. Platform-wide items are in
    markup.
 5. If a broadcast-target picker is wanted, it's a small addition to
    `dashboard/notifications/page.tsx` — the SDK type already supports it.
+6. If cold-start failures are observed anywhere beyond login, extract
+   `withColdStartRetry()`/`isLikelyColdStartError()` out of `login/page.tsx`
+   into `src/lib/` (alongside `errorMessage.ts`) so other mutating calls can
+   reuse it instead of copy-pasting.

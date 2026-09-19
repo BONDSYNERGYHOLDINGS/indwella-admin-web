@@ -12,7 +12,8 @@ indwella-admin-web/
 │   │   ├── page.tsx                 # "/" — redirects to /dashboard or /login based on auth state
 │   │   ├── login/page.tsx            # Admin/superadmin login (superadmin toggle commented out)
 │   │   ├── forgot-password/page.tsx
-│   │   ├── verify-otp/page.tsx        # Has the known next-build Suspense issue
+│   │   ├── verify-otp/page.tsx        # useSearchParams() isolated inside a <Suspense> boundary
+│   │   │                              #   (required for next build's static prerender — see HANDOFF.md)
 │   │   ├── reset-password/page.tsx    # Broken flow — see AUTHENTICATION.md
 │   │   ├── globals.css               # Tailwind base + custom utility classes (card, input-field, btn-primary, btn-secondary)
 │   │   └── dashboard/

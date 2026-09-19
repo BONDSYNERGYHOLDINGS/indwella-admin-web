@@ -33,12 +33,13 @@ cp .env.example .env
 # NEXT_PUBLIC_API_BASE_URL=/api
 # API_PROXY_TARGET=<your-backend-url>
 yarn dev            # http://localhost:3000
+yarn build          # next build — now a clean deploy gate, see below
 ```
 
-**CI gate is `yarn typecheck`, not `yarn build`.** The app's own README
-documents a known, pre-existing static-export break on `/verify-otp` (a
-`<Suspense>` boundary requirement) unrelated to feature work — don't treat a
-red `next build` as a regression.
+**`yarn typecheck` and `yarn build` are both meaningful gates.** `/verify-otp`
+used to fail `next build`'s static prerender (a `<Suspense>` boundary
+requirement for `useSearchParams()`) — this is fixed (see `HANDOFF.md`), so
+`next build` completing is now a real signal, not something to ignore.
 
 ## Distinguishing trait vs. the mobile apps
 

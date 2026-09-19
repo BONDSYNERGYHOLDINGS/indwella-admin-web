@@ -14,7 +14,10 @@ Feature: Admin login
 ├── API operations: POST /admin/login, POST /superadmin/login
 ├── Permissions: public
 ├── Dependencies: auth-context (login())
-└── Current status: Complete for admin; superadmin path is implemented but unreachable in the UI
+└── Current status: Complete for admin; superadmin path is implemented but
+    unreachable in the UI. The submit handler wraps the login call in a
+    one-shot cold-start retry (`withColdStartRetry`) that retries once,
+    after 1.5s, on a timeout or 5xx — see AUTHENTICATION.md.
 ```
 
 ## Dashboard Overview — `/dashboard` — Complete
@@ -31,9 +34,11 @@ Feature: Overview stat cards
 │                    /admin/estate-wallet
 ├── Permissions: admin, superadmin
 ├── Dependencies: none beyond adminApi
-└── Current status: Complete. Note: residents-count response shape is read
-    defensively (tolerates {total}, {count}, or a bare number) because the
-    exact backend shape wasn't confirmed at authoring time (source comment).
+└── Current status: Complete. The residents-count field is confirmed live as
+    `total_residents` (matching the SDK's `ResidentsCountResponse` — see
+    ../../indwella-sdk/docs/TYPES.md); `total`/`count`/a bare number are kept
+    as fallback reads only, not because any of them have actually been
+    observed from the backend.
 ```
 
 ## Residents — `/dashboard/residents` — Complete
@@ -51,7 +56,15 @@ Feature: Resident management
 ├── Dependencies: none
 └── Current status: Complete. Approve/Reject buttons only render for
     status === 'pending' rows; Delete is always available and confirms via
-    window.confirm.
+    window.confirm. The row shape is confirmed live as `{ id, full_name,
+    house_address, phone_number, status }` — there is no first_name/
+    last_name/email/is_approved/created_at from either
+    /admin/residents-info or /admin/search-resident, so the table shows a
+    single `full_name` column instead of a split name+email cell. The
+    approval mutation sends `{ action: status }`, not `{ status }` — the
+    field was renamed backend-side; see
+    ../../indwella-sdk/docs/TYPES.md for the confirmation trail on both of
+    these.
 ```
 
 ## Security — `/dashboard/security` — Complete
@@ -59,8 +72,10 @@ Feature: Resident management
 ```text
 Feature: Security device management
 ├── Route: /dashboard/security
-├── UI components: PageHeader, DataTable, inline "current code" + "new code" cards
-├── State: local (devices, currentCode, newCode, generating/removing flags)
+├── UI components: PageHeader, DataTable, inline "current code" + "new code" cards,
+│                   a small CopyableCode control (tap to copy, brief checkmark
+│                   feedback) used for every displayed security code
+├── State: local (devices, currentCode, newCode, generating/removing/error flags)
 ├── SDK methods: adminApi.getSecurityDevices(), .getSecurityCode(),
 │                 .generateSecurityCode(), .removeSecurityDevice()
 ├── API operations: GET /admin/registered-security-devices,
@@ -69,7 +84,15 @@ Feature: Security device management
 ├── Permissions: admin, superadmin
 ├── Dependencies: none
 └── Current status: Complete. This is where the codes the security app's
-    Login screen consumes are generated — see ../security/AUTHENTICATION.md.
+    Login screen consumes are generated — see ../../indwella-security-app/docs/AUTHENTICATION.md.
+    Both code endpoints correctly read the object-shaped SecurityCodeResponse
+    (`{ message, security_code }`) — an earlier version of this page read
+    the raw response body as if it were a bare string (`data || null` /
+    `data`), which would have rendered `[object Object]`; see
+    ../../indwella-sdk/docs/TYPES.md for why that shape changed. Errors from
+    all three mutating calls (generate/remove/load) now surface via
+    `getApiErrorMessage()` in a banner (see API-USAGE.md) rather than being
+    swallowed.
 ```
 
 ## Service Charges — `/dashboard/service-charges` — Complete
@@ -108,7 +131,18 @@ Feature: Resident payment history
 ├── Permissions: admin, superadmin
 ├── Dependencies: none
 └── Current status: Complete, view-only — no create/edit/delete actions exist
-    or would make sense here (payments are a derived record of wallet activity).
+    or would make sense here (payments are a derived record of wallet
+    activity). The response envelope is confirmed live as `{ payments:
+    ResidentPaymentOut[] }`; `extractPayments()` still defensively checks a
+    few alternate keys (`items`/`results`/`data`/`resident_payments`) before
+    throwing on a truly unrecognized shape, so a future backend change
+    surfaces as a readable error rather than a silent blank table. The table
+    no longer shows `service_charge_name`/`status`/`reference` columns —
+    none of those fields exist on the real response (see
+    ../../indwella-sdk/docs/TYPES.md → ResidentPaymentOut). Every row this
+    endpoint has returned carries `paid_at` and no status, so the Status
+    column is hardcoded to a "paid" badge rather than reading a
+    (nonexistent) field.
 ```
 
 ## Wallet — `/dashboard/wallet` — Complete
@@ -170,33 +204,47 @@ Feature: Cross-estate list (superadmin)
     user of the shipped app.
 ```
 
-## Notifications — `/dashboard/notifications` — Broadcast is broken (backend-side); history list is fine
+## Notifications — `/dashboard/notifications` — Broadcast is broken (backend-side); history list + detail view are fine
 
 ```text
 Feature: Broadcast + sent-notification history
 ├── Route: /dashboard/notifications
 ├── UI components: PageHeader, an inline broadcast <form>, a manually-mapped list
-│                   of past notifications (no DataTable — a bespoke card list)
-├── State: local (title, body, sending, message, notifications, loading)
-├── SDK methods: notificationsApi.list(), notificationsApi.broadcast()
-├── API operations: GET /notifications/admin, POST /notifications/admin/broadcast
+│                   of past notifications (no DataTable — a bespoke card list),
+│                   a click-through detail modal
+├── State: local (title, body, sending, message, notifications, loading, selected)
+├── SDK methods: notificationsApi.list(), .broadcast(), .markRead()
+├── API operations: GET /notifications/admin, POST /notifications/admin/broadcast,
+│                    POST /notifications/admin/mark-read
 ├── Permissions: admin, superadmin
 ├── Dependencies: none
-└── Current status: Broadcast is broken end-to-end — every attempt 422s
-    "Field required" on subject/message. BroadcastNotificationRequest's
-    fields were previously named title/body (matching NotificationOut's
-    read-side fields); renamed to subject/message to match the error's own
-    field names, and verified on the wire (DevTools) that the browser now
-    sends exactly {"subject":...,"message":...,"target":...} with correct
+└── Current status: List/detail is correct and complete; broadcast send is
+    broken (backend-side). The list correctly reads NotificationOut's
+    title/message fields (an earlier version of this page read a
+    nonexistent n.body and rendered no content — since fixed; see
+    ../../indwella-sdk/docs/TYPES.md for the read/write field-name history).
+    Clicking a card opens a detail modal, marks that notification read
+    optimistically (POST /notifications/admin/mark-read, fire-and-forget —
+    failure doesn't block the UI, next load() reconciles it), and shows an
+    attachment link when the notification's untyped `data` field carries an
+    `{ attachment: { url, name } }` payload (a shape not documented anywhere
+    backend-side, mirrored from how the resident app's NotificationScreen
+    reads the same ad-hoc structure).
+
+    Broadcast send itself is broken end-to-end — every attempt 422s "Field
+    required" on subject/message. BroadcastNotificationRequest's fields were
+    previously named title/body (matching NotificationOut's read-side
+    fields); renamed to subject/message to match the error's own field
+    names, and verified on the wire (DevTools) that the browser now sends
+    exactly {"subject":...,"message":...,"target":...} with correct
     Content-Type/Content-Length/auth/CSRF — the 422 still comes back from
-    the live backend regardless. This is now believed to be a backend-side
+    the live backend regardless. This is believed to be a backend-side
     issue, not fixable from this workspace; see ../ENGINEERING-HANDOFF.md.
     Broadcast target is separately hardcoded to 'estate_residents' — the SDK
     type also supports 'all_residents' | 'all_security' | 'single_resident',
     none of which this UI exposes a way to choose. The form's own local
     state and labels ("Title"/"Message") are unchanged, only the outgoing
-    payload's field names. The notification history list (GET
-    /notifications/admin) is unaffected by any of this.
+    payload's field names.
 ```
 
 ## Settings — `/dashboard/settings` — Complete (partial scope)

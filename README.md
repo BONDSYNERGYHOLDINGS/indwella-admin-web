@@ -56,14 +56,18 @@ API_PROXY_TARGET=https://indwella-server.onrender.com
 | `npm run dev` | Start the dev server (http://localhost:3000). |
 | `npm run typecheck` | `tsc --noEmit` — **the CI gate.** Must be green before merge. |
 | `npm run lint` | Next.js ESLint. |
-| `npm run build` | `next build`. See the caveat below. |
+| `npm run build` | `next build`. Now a clean deploy gate — see below. |
 
-### ⚠️ `next build` caveat
+### `next build` / static export
 
-CI verification is **`npm run typecheck`**, not `next build`. There is a known,
-pre-existing static-export break on `/verify-otp` (a `<Suspense>` boundary
-requirement) unrelated to feature work. Do not treat a red `next build` as a
-regression gate; rely on `typecheck` + manual `next dev` click-throughs.
+`/verify-otp` reads `useSearchParams()`, which opts a page out of static
+prerendering unless it's wrapped in a `<Suspense>` boundary — `next build`
+used to fail on this route (`next dev`/`next start` never showed it, since
+only the static-export step triggers the prerender). Fixed: the page's
+`useSearchParams()`-dependent form is isolated in its own component, wrapped
+in `<Suspense>` from the page's default export. `next build` now completes
+cleanly for all routes — it's a valid deploy/CI gate again, not just
+`npm run typecheck`.
 
 ## Architecture
 

@@ -1,12 +1,31 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { passwordResetApi } from '@/lib/apiClient';
 import { AuthSplitLayout } from '@/components/AuthSplitLayout';
 import { getApiErrorMessage } from '@/lib/errorMessage';
 
+// `next build` statically prerenders this route. useSearchParams() opts a
+// page out of that prerender unless it's isolated inside a <Suspense>
+// boundary (Next.js's "missing-suspense-with-csr-bailout" rule) - without
+// this, `next build` fails outright on "/verify-otp" even though `next dev`
+// and `next start` never show a problem, since only the static export step
+// triggers the prerender. See docs/HANDOFF.md.
 export default function VerifyOtpPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthSplitLayout title="Enter verification code" subtitle="Loading…">
+          <div className="h-40" />
+        </AuthSplitLayout>
+      }>
+      <VerifyOtpForm />
+    </Suspense>
+  );
+}
+
+function VerifyOtpForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get('email') ?? '';
