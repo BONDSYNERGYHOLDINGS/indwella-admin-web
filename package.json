@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "preinstall": "node scripts/ci-git-auth.js",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -10,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@indwella/sdk": "file:../indwella-sdk",
+    "@indwella/sdk": "git+https://github.com/BONDSYNERGYHOLDINGS/indwella-sdk.git#main",
     "axios": "^1.7.7",
     "clsx": "^2.1.1",
     "lucide-react": "^0.454.0",

@@ -26,9 +26,8 @@ not reachable via the shipped UI) superadmins.
 ## Quick start
 
 ```bash
-cd indwella-sdk && yarn install && yarn build
-cd ../indwella-admin-web
-yarn install
+yarn install        # also builds @indwella/sdk automatically (private git
+                     # dependency, self-builds via its own "prepare" script)
 cp .env.example .env
 # NEXT_PUBLIC_API_BASE_URL=/api
 # API_PROXY_TARGET=<your-backend-url>

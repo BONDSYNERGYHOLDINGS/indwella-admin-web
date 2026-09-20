@@ -8,21 +8,23 @@ real API.
 ## Prerequisites
 
 - Node.js 18+
-- The sibling [`indwella-sdk`](../indwella-sdk) repo checked out next to this one
-  (this app depends on it via `"@indwella/sdk": "file:../indwella-sdk"`).
+- Read access to the private [`indwella-sdk`](https://github.com/BONDSYNERGYHOLDINGS/indwella-sdk)
+  repo — this app depends on it directly via a git dependency
+  (`"@indwella/sdk": "git+https://github.com/BONDSYNERGYHOLDINGS/indwella-sdk.git#main"`),
+  not a sibling `file:` path. Any GitHub account with access to the org
+  already has this locally; CI (Netlify) needs a `SDK_GIT_TOKEN` env var —
+  see `docs/HANDOFF.md`.
 
 ## Setup
 
 ```bash
-# 1. Build the SDK first (this app consumes its compiled dist/)
-cd ../indwella-sdk && npm install && npm run build
-
-# 2. Install this app
-cd ../indwella-admin-web && npm install
-
-# 3. Configure the backend URL
+npm install    # also builds @indwella/sdk automatically via its own
+               # "prepare" script, once it's fetched from git
 cp .env.example .env        # then edit if pointing at a different backend
 ```
+
+For local SDK development (editing SDK source before it's pushed), use
+`yarn link` instead of a `file:` path — see `../indwella-sdk/docs/HANDOFF.md`.
 
 `.env`:
 
@@ -39,9 +41,10 @@ API_PROXY_TARGET=https://indwella-server.onrender.com
 > Full details, verification steps, and the cross-origin rationale are in
 > [`../ADMIN_AUTH.md`](../ADMIN_AUTH.md).
 
-> After changing SDK **source**, rebuild it (`npm run build` in `indwella-sdk`)
-> so this app picks up the new `dist/`. A `file:` dependency does not rebuild
-> automatically.
+> After changing SDK **source**, commit and push it to `main` — this app's
+> `npm install` pulls whatever's actually on `main` and rebuilds it
+> automatically via the SDK's own `prepare` script. Uncommitted local SDK
+> edits are invisible here; use `yarn link` for local iteration instead.
 
 > **Login timing out?** `API_PROXY_TARGET` defaults to a Render-hosted
 > backend, which can cold-start (30-60s+) after being idle. `apiClient.ts`

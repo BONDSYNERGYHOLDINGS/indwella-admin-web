@@ -12,8 +12,9 @@
   resolved "https://registry.yarnpkg.com/@babel/runtime/-/runtime-7.29.7.tgz#12022450c45a4da6d8d8287b18a4ff2ddb23f768"
   integrity sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw==
 
-"@indwella/sdk@file:../indwella-sdk":
+"@indwella/sdk@git+https://github.com/BONDSYNERGYHOLDINGS/indwella-sdk.git#main":
   version "1.0.0"
+  resolved "git+https://github.com/BONDSYNERGYHOLDINGS/indwella-sdk.git#469d2d965d1f115bf2c5eb77285a23201993e6ce"
   dependencies:
     axios "^1.7.7"
 

@@ -44,6 +44,34 @@ App-specific bugs, limitations, and next steps. Platform-wide items are in
    `getApiErrorMessage()` (`src/lib/errorMessage.ts`) normalizes both shapes
    to a string and is now used in every form's catch block except the
    Overview page. See `API-USAGE.md`.
+6. ~~Netlify build failed installing dependencies~~ **Fixed** — this app
+   depended on the SDK via `"@indwella/sdk": "file:../indwella-sdk"`, a
+   relative path to a sibling folder that only exists in a local checkout
+   where all four repos sit side by side. Netlify clones only this repo, so
+   there was no `../indwella-sdk` to resolve and `yarn install` failed with
+   `Package "" refers to a non-existing file`. Fixed by switching to a git
+   dependency pointing at the SDK's own (private) repo:
+   `"@indwella/sdk": "git+https://github.com/BONDSYNERGYHOLDINGS/indwella-sdk.git#main"`.
+   See `../../indwella-sdk/docs/HANDOFF.md` → "Dependency model" for the
+   full mechanism (the SDK's `prepare` script, `yarn link` for local dev).
+
+   **Netlify-specific setup required (one-time):** because the SDK repo is
+   private, Netlify's build container has no GitHub credentials of its own.
+   `scripts/ci-git-auth.js` (wired up as this app's `preinstall` script)
+   configures a token-based git URL rewrite, but only when a `SDK_GIT_TOKEN`
+   environment variable is present:
+   1. On GitHub, create a **fine-grained personal access token** scoped to
+      *only* the `indwella-sdk` repository, with read-only **Contents**
+      permission.
+   2. In Netlify: Site configuration → Environment variables → add
+      `SDK_GIT_TOKEN` with that token as the value.
+   3. Trigger a new deploy. No build-command changes needed — the
+      `preinstall` script picks up the env var automatically, before
+      `yarn install` tries to fetch the SDK.
+
+   This is a no-op on every local developer machine (no `SDK_GIT_TOKEN` set
+   there), since local devs already have their own cached GitHub
+   credentials.
 
 ## Limitations worth knowing before extending this app
 
