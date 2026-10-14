@@ -43,6 +43,25 @@ const config: Config = {
       borderRadius: {
         xl2: '1.25rem',
       },
+      keyframes: {
+        'splash-in': {
+          '0%': { opacity: '0', transform: 'scale(0.85)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        'splash-pulse': {
+          '0%, 100%': { transform: 'scale(1)' },
+          '50%': { transform: 'scale(1.06)' },
+        },
+        'splash-bar': {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(250%)' },
+        },
+      },
+      animation: {
+        'splash-in': 'splash-in 500ms ease-out both',
+        'splash-pulse': 'splash-pulse 1.8s ease-in-out 500ms infinite',
+        'splash-bar': 'splash-bar 1.4s ease-in-out infinite',
+      },
     },
   },
   plugins: [],

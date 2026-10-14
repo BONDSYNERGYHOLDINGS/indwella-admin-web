@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { Sidebar } from '@/components/Sidebar';
+import { SplashScreen } from '@/components/SplashScreen';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -16,11 +17,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [isAuthLoading, isAuthenticated, router]);
 
   if (isAuthLoading || !isAuthenticated) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-ink-400">
-        Loading…
-      </div>
-    );
+    return <SplashScreen />;
   }
 
   return (
